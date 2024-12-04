@@ -22,3 +22,5 @@ class PongBot(Rag2WebsocketHandler):
             else:
                 move = -1
         self.write_message(json.dumps({'move': move}))
+
+        #test
