@@ -11,7 +11,6 @@ class Rag2WebsocketHandler(tornado.websocket.WebSocketHandler):
         print("WebSocket connection opened")
 
     def on_message(self, message):
-        print(message)
         receivedData = json.loads(message)
         self.send_data(receivedData)
 
