@@ -5,7 +5,12 @@ on:
     branches: [ "main" ]
 
 jobs:
-  build:
+  test:
+    name: Test
+    uses: ./.github/workflows/test.yml
+  deploy:
+    name: Deploy
+    needs: [ test ]
     runs-on: ubuntu-latest
     steps:
       - name: Deploy
