@@ -1,0 +1,25 @@
+name: Deploy
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.REMOTE_HOST }}
+          username: ${{ secrets.REMOTE_USER }}
+          port: ${{ secrets.REMOTE_PORT }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }} 
+          script: |
+            cd /home/project/rag-2-ai
+            git checkout main
+            git pull
+            cd /home/project
+            docker compose up --build -d
+            echo "$(date): ai deployed successfully" >> deploy-log.txt 
+            docker system prune -f
