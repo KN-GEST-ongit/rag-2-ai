@@ -5,7 +5,12 @@ on:
     branches: [ "main" ]
 
 jobs:
-  build:
+  test:
+    name: Test
+    uses: ./.github/workflows/test.yml
+  deploy:
+    name: Deploy
+    needs: [ test ]
     runs-on: ubuntu-latest
     steps:
       - name: Deploy
@@ -14,7 +19,7 @@ jobs:
           host: ${{ secrets.REMOTE_HOST }}
           username: ${{ secrets.REMOTE_USER }}
           port: ${{ secrets.REMOTE_PORT }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }} 
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             cd /home/project/rag-2-ai
             git checkout main
