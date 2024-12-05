@@ -2,12 +2,12 @@ name: Test
 
 on:
   pull_request:
-    branches: [ "main", "dev" ]
-  push:
     branches: [ "dev" ]
+  workflow_call:
 
 jobs:
-  build:
+  test:
+    name: Test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
