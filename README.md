@@ -1,4 +1,4 @@
-# RAG-2 AI MODELS
+# RAG-2 AI
 
 ## License
 
