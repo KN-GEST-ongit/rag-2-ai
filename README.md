@@ -1,4 +1,4 @@
-# RAG-2 AI
+# RAG-2 AI microservice
 
 ## License
 
