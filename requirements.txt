@@ -1,1 +1,15 @@
+--extra-index-url https://download.pytorch.org/whl/cu113
+
+torch==1.11.0
+torchvision==0.12.0
+torchaudio==0.11.0
+setuptools==66
+wheel==0.38.0
+opencv-python==4.10.0.84
+gym==0.21.0
+stable-baselines3[extra]==1.5.0
+protobuf==3.20.*
+numpy==1.26.4
 tornado~=6.4.1
+requests~=2.32.3
+python-dotenv~=1.0.1

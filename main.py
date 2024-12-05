@@ -1,22 +1,11 @@
-import tornado.ioloop
-import tornado.web
-import tornado.websocket
-
-from games.pong import PongWebSocketHandler, PongBot
+from scripts.define_routes import define_routes
+from src.socket import run_socket
 
 
-def make_app():
-    return tornado.web.Application([
-        (r"/ws/pong/", PongWebSocketHandler), #http://localhost:8001/ws/pong/
-        (r"/ws/pong-bot/", PongBot), #http://localhost:8001/ws/pong-bot/
-    ])
+def main():
+    routes = define_routes()
+    run_socket(port=8001, routes=routes)
 
 
-def run():
-    app = make_app()
-    app.listen(8001)
-    print("Started")
-    tornado.ioloop.IOLoop.current().start()
-
-
-run()
+if __name__ == '__main__':
+    main()
