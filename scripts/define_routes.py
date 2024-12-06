@@ -8,6 +8,7 @@ from scripts.load_models import (
     dqn_pong,
     ppo_pong,
     a2c_pong,
+    trpo_pong,
     ppo_fb,
     trpo_fb
 )
@@ -24,6 +25,9 @@ def define_routes() -> List[Tuple[str, Type, dict]]:
         )),
         (r"/ws/pong/pong-a2c/", AiHandler, dict(
             agent=PongAgent(a2c_pong, 3)
+        )),
+        (r"/ws/pong/pong-trpo/", AiHandler, dict(
+            agent=PongAgent(trpo_pong, 3)
         )),
         (r"/ws/pong/pong-bot/", PongBot),
     ]

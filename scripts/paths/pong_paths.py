@@ -10,3 +10,4 @@ env_path = os.path.join(
 dqn_pong_path = os.path.join(dqn_path, env_path)
 ppo_pong_path = os.path.join(ppo_path, env_path)
 a2c_pong_path = os.path.join(a2c_path, env_path)
+trpo_pong_path = os.path.join(trpo_path, env_path)
