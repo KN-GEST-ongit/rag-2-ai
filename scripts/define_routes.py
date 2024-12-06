@@ -1,18 +1,17 @@
 import os
+
 from typing import List, Tuple, Type
-
 from stable_baselines3 import DQN, PPO, A2C
-
 from src.api import RoutesHandler
 from src.bots import PongBot, FlappybirdBot, SkijumpBot
-from src.env_sim.web_pong import prepare_pong_obs
 from src.handlers import AiHandler
+from src.agents.web_pong import PongAgent
 
 
 def define_routes() -> List[Tuple[str, Type, dict]]:
-    dqn_path = os.path.join('trained-agents', 'dqn')
-    ppo_path = os.path.join('trained-agents', 'ppo')
-    a2c_path = os.path.join('trained-agents', 'a2c')
+    dqn_path = os.path.join('ready-models', 'dqn')
+    ppo_path = os.path.join('ready-models', 'ppo')
+    a2c_path = os.path.join('ready-models', 'a2c')
 
     dqn_pong_path = os.path.join(
         dqn_path,
@@ -38,25 +37,13 @@ def define_routes() -> List[Tuple[str, Type, dict]]:
     routes = []
     pong_routes = [
         (r"/ws/pong/pong-dqn/", AiHandler, dict(
-            model=dqn_pong,
-            obs_funct=prepare_pong_obs,
-            move_first=-1,
-            move_last=1,
-            history_length=3
+            agent=PongAgent(dqn_pong, 3)
         )),
         (r"/ws/pong/pong-ppo/", AiHandler, dict(
-            model=ppo_pong,
-            obs_funct=prepare_pong_obs,
-            move_first=-1,
-            move_last=1,
-            history_length=3
+            agent=PongAgent(ppo_pong, 3)
         )),
         (r"/ws/pong/pong-a2c/", AiHandler, dict(
-            model=a2c_pong,
-            obs_funct=prepare_pong_obs,
-            move_first=-1,
-            move_last=1,
-            history_length=3
+            agent=PongAgent(a2c_pong, 3)
         )),
         (r"/ws/pong/pong-bot/", PongBot),
     ]
