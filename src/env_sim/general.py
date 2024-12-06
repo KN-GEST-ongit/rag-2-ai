@@ -3,6 +3,10 @@ from collections import deque
 import numpy as np
 
 
+class Test:
+    def __init__(self):
+        pass
+
 def action_map(action: int, first: int, last: int) -> int:
     num_actions = last - first + 1
     return first + action % num_actions
