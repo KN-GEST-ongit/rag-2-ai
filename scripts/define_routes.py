@@ -2,16 +2,19 @@ import os
 
 from typing import List, Tuple, Type
 from stable_baselines3 import DQN, PPO, A2C
+from sb3_contrib import TRPO
 from src.api import RoutesHandler
 from src.bots import PongBot, FlappybirdBot, SkijumpBot
 from src.handlers import AiHandler
 from src.agents.web_pong import PongAgent
+from src.agents.web_flappy_bird import FlappyBirdAgent
 
 
 def define_routes() -> List[Tuple[str, Type, dict]]:
     dqn_path = os.path.join('ready-models', 'dqn')
     ppo_path = os.path.join('ready-models', 'ppo')
     a2c_path = os.path.join('ready-models', 'a2c')
+    trpo_path = os.path.join('ready-models', 'trpo')
 
     dqn_pong_path = os.path.join(
         dqn_path,
@@ -47,7 +50,28 @@ def define_routes() -> List[Tuple[str, Type, dict]]:
         )),
         (r"/ws/pong/pong-bot/", PongBot),
     ]
+
+    ppo_fb_path = os.path.join(
+        ppo_path,
+        'WebsocketFlappyBird-v0',
+        'WebsocketFlappyBird-v0_200000_steps.zip'
+    )
+    ppo_fb = PPO.load(path=ppo_fb_path)
+
+    trpo_fb_path = os.path.join(
+        trpo_path,
+        'WebsocketFlappyBird-v0',
+        'WebsocketFlappyBird-v0_200000_steps.zip'
+    )
+    trpo_fb = TRPO.load(path=ppo_fb_path)
+
     flappybird_routes = [
+        (r"/ws/flappybird/flappybird-ppo/", AiHandler, dict(
+            agent=FlappyBirdAgent(ppo_fb, 3)
+        )),
+        (r"/ws/flappybird/flappybird-trpo/", AiHandler, dict(
+            agent=FlappyBirdAgent(trpo_fb, 3)
+        )),
         (r"/ws/flappybird/flappybird-bot/", FlappybirdBot),
     ]
     skijump_routes = [
