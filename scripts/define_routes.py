@@ -1,42 +1,19 @@
-import os
-
 from typing import List, Tuple, Type
-from stable_baselines3 import DQN, PPO, A2C
-from sb3_contrib import TRPO
 from src.api import RoutesHandler
 from src.bots import PongBot, FlappybirdBot, SkijumpBot
 from src.handlers import AiHandler
 from src.agents.web_pong import PongAgent
 from src.agents.web_flappy_bird import FlappyBirdAgent
+from scripts.load_models import (
+    dqn_pong,
+    ppo_pong,
+    a2c_pong,
+    ppo_fb,
+    trpo_fb
+)
 
 
 def define_routes() -> List[Tuple[str, Type, dict]]:
-    dqn_path = os.path.join('ready-models', 'dqn')
-    ppo_path = os.path.join('ready-models', 'ppo')
-    a2c_path = os.path.join('ready-models', 'a2c')
-    trpo_path = os.path.join('ready-models', 'trpo')
-
-    dqn_pong_path = os.path.join(
-        dqn_path,
-        'WebsocketPong-v0',
-        'WebsocketPong-v0_200000_steps.zip'
-    )
-    dqn_pong = DQN.load(path=dqn_pong_path)
-
-    ppo_pong_path = os.path.join(
-        ppo_path,
-        'WebsocketPong-v0',
-        'WebsocketPong-v0_200000_steps.zip'
-    )
-    ppo_pong = PPO.load(path=ppo_pong_path)
-
-    a2c_pong_path = os.path.join(
-        a2c_path,
-        'WebsocketPong-v0',
-        'WebsocketPong-v0_200000_steps.zip'
-    )
-    a2c_pong = A2C.load(path=a2c_pong_path)
-
     routes = []
     pong_routes = [
         (r"/ws/pong/pong-dqn/", AiHandler, dict(
@@ -51,20 +28,6 @@ def define_routes() -> List[Tuple[str, Type, dict]]:
         (r"/ws/pong/pong-bot/", PongBot),
     ]
 
-    ppo_fb_path = os.path.join(
-        ppo_path,
-        'WebsocketFlappyBird-v0',
-        'WebsocketFlappyBird-v0_200000_steps.zip'
-    )
-    ppo_fb = PPO.load(path=ppo_fb_path)
-
-    trpo_fb_path = os.path.join(
-        trpo_path,
-        'WebsocketFlappyBird-v0',
-        'WebsocketFlappyBird-v0_200000_steps.zip'
-    )
-    trpo_fb = TRPO.load(path=ppo_fb_path)
-
     flappybird_routes = [
         (r"/ws/flappybird/flappybird-ppo/", AiHandler, dict(
             agent=FlappyBirdAgent(ppo_fb, 3)
@@ -74,6 +37,7 @@ def define_routes() -> List[Tuple[str, Type, dict]]:
         )),
         (r"/ws/flappybird/flappybird-bot/", FlappybirdBot),
     ]
+
     skijump_routes = [
         (r"/ws/skijump/skijump-bot/", SkijumpBot)
     ]
