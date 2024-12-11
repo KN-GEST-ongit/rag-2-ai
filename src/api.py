@@ -75,7 +75,6 @@ class BaseHandler(WebSocketHandler):
 
         self.after_close()
 
-    @abstractmethod
     def after_close(self):
         raise NotImplementedError
 
