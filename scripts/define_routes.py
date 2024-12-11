@@ -17,14 +17,14 @@ from scripts.load_models import (
 def define_routes() -> List[Tuple[str, Type, dict]]:
     routes = []
     pong_routes = [
+        (r"/ws/pong/pong-a2c/", AiHandler, dict(
+            agent=PongAgent(a2c_pong, 3)
+        )),
         (r"/ws/pong/pong-dqn/", AiHandler, dict(
             agent=PongAgent(dqn_pong, 3)
         )),
         (r"/ws/pong/pong-ppo/", AiHandler, dict(
             agent=PongAgent(ppo_pong, 3)
-        )),
-        (r"/ws/pong/pong-a2c/", AiHandler, dict(
-            agent=PongAgent(a2c_pong, 3)
         )),
         (r"/ws/pong/pong-trpo/", AiHandler, dict(
             agent=PongAgent(trpo_pong, 3)
