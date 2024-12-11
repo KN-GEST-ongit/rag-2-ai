@@ -76,7 +76,7 @@ class BaseHandler(WebSocketHandler):
         self.after_close()
 
     def after_close(self):
-        pass
+        raise NotImplementedError
 
     @final
     def on_message(self, message):  # do not override

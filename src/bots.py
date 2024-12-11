@@ -6,14 +6,16 @@ from src.handlers import BaseHandler
 class PongBot(BaseHandler):
     def send_message(self, message):
         data = json.loads(message)
+        player = data['playerId']
+        state = data['state']
 
-        if data['playerId'] == 0:
-            if data['state']['ballY'] < data['state']['leftPaddleY'] + 50:
+        if player == 0:
+            if state['ballY'] < state['leftPaddleY'] + 50:
                 move = 1
             else:
                 move = -1
         else:
-            if data['state']['ballY'] < data['state']['rightPaddleY'] + 50:
+            if state['ballY'] < state['rightPaddleY'] + 50:
                 move = 1
             else:
                 move = -1
@@ -23,22 +25,17 @@ class PongBot(BaseHandler):
 
 class FlappybirdBot(BaseHandler):
     def send_message(self, message):
-        data = json.loads(message)['state']
+        state = json.loads(message)['state']
         jump = 0
 
-        if not data['isGameStarted']:
+        if not state['isGameStarted']:
             jump = 1
         else:
-            obstacles = data['obstacles']
-            lowestDist = 1000
-            lowestDistIndex = 0
-            for i in range(0, len(obstacles)):
-                dist = obstacles[i]['distanceX']
-                if lowestDist > dist > 60:
-                    lowestDist = dist
-                    lowestDistIndex = i
-
-            if data['birdY'] > obstacles[lowestDistIndex]['centerGapY']:
+            nearest_obstacle = min(
+                (o for o in state['obstacles'] if o["distanceX"] > 0),
+                key=lambda o: o["distanceX"]
+            )
+            if state['birdY'] > nearest_obstacle['centerGapY']:
                 jump = 1
 
         self.write_message(json.dumps({'jump': jump}))

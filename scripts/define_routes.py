@@ -1,68 +1,51 @@
-import os
 from typing import List, Tuple, Type
-
-from stable_baselines3 import DQN, PPO, A2C
-
 from src.api import RoutesHandler
 from src.bots import PongBot, FlappybirdBot, SkijumpBot
-from src.env_sim.web_pong import prepare_pong_obs
 from src.handlers import AiHandler
+from src.agents.web_pong import PongAgent
+from src.agents.web_flappy_bird import FlappyBirdAgent
+from scripts.load_models import (
+    dqn_pong,
+    ppo_pong,
+    a2c_pong,
+    trpo_pong,
+    qrdqn_pong,
+    ppo_fb,
+    trpo_fb
+)
 
 
 def define_routes() -> List[Tuple[str, Type, dict]]:
-    dqn_path = os.path.join('trained-agents', 'dqn')
-    ppo_path = os.path.join('trained-agents', 'ppo')
-    a2c_path = os.path.join('trained-agents', 'a2c')
-
-    dqn_pong_path = os.path.join(
-        dqn_path,
-        'WebsocketPong-v0',
-        'WebsocketPong-v0_200000_steps.zip'
-    )
-    dqn_pong = DQN.load(path=dqn_pong_path)
-
-    ppo_pong_path = os.path.join(
-        ppo_path,
-        'WebsocketPong-v0',
-        'WebsocketPong-v0_200000_steps.zip'
-    )
-    ppo_pong = PPO.load(path=ppo_pong_path)
-
-    a2c_pong_path = os.path.join(
-        a2c_path,
-        'WebsocketPong-v0',
-        'WebsocketPong-v0_200000_steps.zip'
-    )
-    a2c_pong = A2C.load(path=a2c_pong_path)
-
     routes = []
     pong_routes = [
+        (r"/ws/pong/pong-bot/", PongBot),
+        (r"/ws/pong/pong-a2c/", AiHandler, dict(
+            agent=PongAgent(a2c_pong, 3)
+        )),
         (r"/ws/pong/pong-dqn/", AiHandler, dict(
-            model=dqn_pong,
-            obs_funct=prepare_pong_obs,
-            move_first=-1,
-            move_last=1,
-            history_length=3
+            agent=PongAgent(dqn_pong, 3)
         )),
         (r"/ws/pong/pong-ppo/", AiHandler, dict(
-            model=ppo_pong,
-            obs_funct=prepare_pong_obs,
-            move_first=-1,
-            move_last=1,
-            history_length=3
+            agent=PongAgent(ppo_pong, 3)
         )),
-        (r"/ws/pong/pong-a2c/", AiHandler, dict(
-            model=a2c_pong,
-            obs_funct=prepare_pong_obs,
-            move_first=-1,
-            move_last=1,
-            history_length=3
+        (r"/ws/pong/pong-qrdqn/", AiHandler, dict(
+            agent=PongAgent(qrdqn_pong, 3)
         )),
-        (r"/ws/pong/pong-bot/", PongBot),
+        (r"/ws/pong/pong-trpo/", AiHandler, dict(
+            agent=PongAgent(trpo_pong, 3)
+        ))
     ]
+
     flappybird_routes = [
         (r"/ws/flappybird/flappybird-bot/", FlappybirdBot),
+        (r"/ws/flappybird/flappybird-ppo/", AiHandler, dict(
+            agent=FlappyBirdAgent(ppo_fb, 3)
+        )),
+        (r"/ws/flappybird/flappybird-trpo/", AiHandler, dict(
+            agent=FlappyBirdAgent(trpo_fb, 3)
+        ))
     ]
+
     skijump_routes = [
         (r"/ws/skijump/skijump-bot/", SkijumpBot)
     ]
