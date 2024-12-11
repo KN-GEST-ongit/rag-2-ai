@@ -19,7 +19,10 @@ class FlappyBirdAgent(WebsocketAgent):
         else:
             self.should_start = False
 
-        nearest_obstacle = min(state['obstacles'], key=lambda o: o["distanceX"])
+        nearest_obstacle = min(
+            (o for o in state['obstacles'] if o["distanceX"] > 0),
+            key=lambda o: o["distanceX"]
+        )
         curr_observation = np.array([
             state['birdY'],
             state['birdSpeedY'],
