@@ -9,6 +9,7 @@ from scripts.load_models import (
     ppo_pong,
     a2c_pong,
     trpo_pong,
+    qrdqn_pong,
     ppo_fb,
     trpo_fb
 )
@@ -17,6 +18,7 @@ from scripts.load_models import (
 def define_routes() -> List[Tuple[str, Type, dict]]:
     routes = []
     pong_routes = [
+        (r"/ws/pong/pong-bot/", PongBot),
         (r"/ws/pong/pong-a2c/", AiHandler, dict(
             agent=PongAgent(a2c_pong, 3)
         )),
@@ -26,20 +28,22 @@ def define_routes() -> List[Tuple[str, Type, dict]]:
         (r"/ws/pong/pong-ppo/", AiHandler, dict(
             agent=PongAgent(ppo_pong, 3)
         )),
+        (r"/ws/pong/pong-qrdqn/", AiHandler, dict(
+            agent=PongAgent(qrdqn_pong, 3)
+        )),
         (r"/ws/pong/pong-trpo/", AiHandler, dict(
             agent=PongAgent(trpo_pong, 3)
-        )),
-        (r"/ws/pong/pong-bot/", PongBot),
+        ))
     ]
 
     flappybird_routes = [
+        (r"/ws/flappybird/flappybird-bot/", FlappybirdBot),
         (r"/ws/flappybird/flappybird-ppo/", AiHandler, dict(
             agent=FlappyBirdAgent(ppo_fb, 3)
         )),
         (r"/ws/flappybird/flappybird-trpo/", AiHandler, dict(
             agent=FlappyBirdAgent(trpo_fb, 3)
-        )),
-        (r"/ws/flappybird/flappybird-bot/", FlappybirdBot),
+        ))
     ]
 
     skijump_routes = [
