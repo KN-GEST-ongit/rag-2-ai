@@ -4,7 +4,7 @@ from src.handlers import BaseHandler
 
 
 class PongBot(BaseHandler):
-    async def send_message(self, message):
+    def send_message(self, message):
         data = json.loads(message)
         player = data['playerId']
         state = data['state']
@@ -20,11 +20,11 @@ class PongBot(BaseHandler):
             else:
                 move = -1
 
-        await self.write_message(json.dumps({'move': move, 'start': 1}))
+        self.write_message(json.dumps({'move': move, 'start': 1}))
 
 
 class FlappybirdBot(BaseHandler):
-    async def send_message(self, message):
+    def send_message(self, message):
         state = json.loads(message)['state']
         jump = 0
 
@@ -38,11 +38,11 @@ class FlappybirdBot(BaseHandler):
             if state['birdY'] > nearest_obstacle['centerGapY']:
                 jump = 1
 
-        await self.write_message(json.dumps({'jump': jump}))
+        self.write_message(json.dumps({'jump': jump}))
 
 
 class SkijumpBot(BaseHandler):
-    async def send_message(self, message):
+    def send_message(self, message):
         state = json.loads(message)['state']
 
         space = 0
@@ -58,4 +58,4 @@ class SkijumpBot(BaseHandler):
         if state['jumperInclineRad'] < 0.7:
             up = 1
 
-        await self.write_message(json.dumps({'space': space, 'up': up, 'down': down}))
+        self.write_message(json.dumps({'space': space, 'up': up, 'down': down}))
