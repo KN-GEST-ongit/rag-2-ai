@@ -11,6 +11,7 @@ class WebsocketAgent(ABC):
         if history_length < 1:
             raise ValueError("history_length must be an integer greater than or equal to 1")
         self.model = model
+        self.history_length = history_length
         self.states = deque(maxlen=history_length)
 
     def start(self) -> bool:
@@ -22,12 +23,14 @@ class WebsocketAgent(ABC):
 
     @final
     def state_stack(self, observation: np.array) -> np.array:
-        if len(self.states) == 0:
-            for _ in range(self.states.maxlen):
+        if self.history_length > 1:
+            if len(self.states) == 0:
+                for _ in range(self.states.maxlen):
+                    self.states.append(observation)
+            else:
                 self.states.append(observation)
-        else:
-            self.states.append(observation)
-        return np.array(self.states).flatten()
+            return np.array(self.states).flatten()
+        return observation
 
     @abstractmethod
     def return_prediction(self, data: dict) -> dict:
