@@ -76,16 +76,16 @@ class BaseHandler(WebSocketHandler):
         self.after_close()
 
     def after_close(self):
-        raise NotImplementedError
+        pass
 
     @final
-    def on_message(self, message):  # do not override
+    async def on_message(self, message):  # do not override
         if self.last_message_time is None or time.time() - self.last_message_time >= 0.045:
             self.last_message_time = time.time()
-            self.send_message(message)
+            await self.send_message(message)
 
     @abstractmethod
-    def send_message(self, message):
+    async def send_message(self, message):
         raise NotImplementedError
 
 
