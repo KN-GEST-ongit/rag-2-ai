@@ -10,6 +10,7 @@ from scripts.load_models import (
     a2c_pong,
     trpo_pong,
     qrdqn_pong,
+    ars_fb,
     ppo_fb,
     trpo_fb
 )
@@ -38,6 +39,9 @@ def define_routes() -> List[Tuple[str, Type, dict]]:
 
     flappybird_routes = [
         (r"/ws/flappybird/flappybird-bot/", FlappybirdBot),
+        (r"/ws/flappybird/flappybird-ars/", AiHandler, dict(
+            agent=FlappyBirdAgent(ars_fb, 1)
+        )),
         (r"/ws/flappybird/flappybird-ppo/", AiHandler, dict(
             agent=FlappyBirdAgent(ppo_fb, 3)
         )),
