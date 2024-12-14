@@ -7,8 +7,11 @@ import numpy as np
 class PongAgent(WebsocketAgent):
     def __init__(self, model: BaseAlgorithm, history_length: int):
         super().__init__(model, history_length)
-        self.min_values = np.array([0, 0, 0, 0, -100, -100], dtype=np.float32)
-        self.max_values = np.array([600, 600, 1000, 600, 100, 100], dtype=np.float32)
+        # # For opponent observation
+        # self.min_values = np.array([0, 0, 0, 0, -100, -100], dtype=np.float32)
+        # self.max_values = np.array([600, 600, 1000, 600, 100, 100], dtype=np.float32)
+        self.min_values = np.array([0, 0, 0, -100, -100], dtype=np.float32)
+        self.max_values = np.array([600, 1000, 600, 100, 100], dtype=np.float32)
         self.action_map = {0: -1, 1: 0, 2: 1}
 
     def prepare_observation(self, data: dict) -> np.array:
@@ -17,7 +20,7 @@ class PongAgent(WebsocketAgent):
         if player == 0:
             curr_observation = np.array([
                 state['leftPaddleY'],
-                state['rightPaddleY'],
+                # state['rightPaddleY'], # Opponent
                 state['ballX'],
                 state['ballY'],
                 state['ballSpeedX'],
@@ -26,18 +29,18 @@ class PongAgent(WebsocketAgent):
         else:
             curr_observation = np.array([
                 state['rightPaddleY'],
-                state['leftPaddleY'],
+                # state['leftPaddleY'],  # Opponent
                 1000 - state['ballX'],
                 state['ballY'],
                 -state['ballSpeedX'],
                 state['ballSpeedY'],
             ], dtype=np.float32)
 
-        curr_observation[:4] = ((curr_observation[:4] - self.min_values[:4]) /
-                                (self.max_values[:4] - self.min_values[:4]))
+        curr_observation[:3] = ((curr_observation[:3] - self.min_values[:3]) /
+                                (self.max_values[:3] - self.min_values[:3]))
 
-        curr_observation[4:] = 2 * ((curr_observation[4:] - self.min_values[4:]) /
-                                    (self.max_values[4:] - self.min_values[4:])) - 1
+        curr_observation[3:] = 2 * ((curr_observation[3:] - self.min_values[3:]) /
+                                    (self.max_values[3:] - self.min_values[3:])) - 1
 
         return self.state_stack(curr_observation)
 
