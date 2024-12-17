@@ -18,7 +18,6 @@ class AiHandler(BaseHandler):
     def after_close(self):
         self.agent.states.clear()
 
-    def send_message(self, message):
-        data = json.loads(message)
+    def send_prediction(self, data: dict):
         action = self.agent.return_prediction(data)
         self.write_message(json.dumps(action))

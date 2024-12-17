@@ -1,11 +1,11 @@
 import json
+import random  # to test
 
 from src.handlers import BaseHandler
 
 
 class PongBot(BaseHandler):
-    def send_message(self, message):
-        data = json.loads(message)
+    def send_prediction(self, data: dict):
         player = data['playerId']
         state = data['state']
 
@@ -24,8 +24,8 @@ class PongBot(BaseHandler):
 
 
 class FlappybirdBot(BaseHandler):
-    def send_message(self, message):
-        state = json.loads(message)['state']
+    def send_prediction(self, data: dict):
+        state = data['state']
         jump = 0
 
         if not state['isGameStarted']:
@@ -41,9 +41,9 @@ class FlappybirdBot(BaseHandler):
         self.write_message(json.dumps({'jump': jump}))
 
 
-class SkijumpBot(BaseHandler):
-    def send_message(self, message):
-        state = json.loads(message)['state']
+class SkiJumpBot(BaseHandler):
+    def send_prediction(self, data: dict):
+        state = data['state']
 
         space = 0
         up = 0
@@ -59,3 +59,11 @@ class SkijumpBot(BaseHandler):
             up = 1
 
         self.write_message(json.dumps({'space': space, 'up': up, 'down': down}))
+
+
+class HappyJumpBot(BaseHandler):
+    def send_prediction(self, data: dict):
+        state = data['state']
+        move = random.choice([0, 1, -1])
+        # TODO
+        self.write_message(json.dumps({'jump': 1, 'move': move}))
