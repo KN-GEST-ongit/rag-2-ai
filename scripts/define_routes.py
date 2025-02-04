@@ -4,6 +4,7 @@ from src.bots import PongBot, FlappybirdBot, SkiJumpBot, HappyJumpBot
 from src.handlers import AiHandler
 from src.agents.web_pong import PongAgent
 from src.agents.web_flappy_bird import FlappyBirdAgent
+from src.agents.web_happy_jump import HappyJumpAgent
 from scripts.load_models import (
     dqn_pong,
     ppo_pong,
@@ -12,7 +13,10 @@ from scripts.load_models import (
     qrdqn_pong,
     ars_fb,
     ppo_fb,
-    trpo_fb
+    trpo_fb,
+    dqn_hj,
+    ppo_hj,
+    trpo_hj
 )
 
 
@@ -57,7 +61,16 @@ def define_routes() -> List[Tuple[str, Type, dict]]:
     ]
 
     happyjump_routes = [
-        (r"/ws/happyjump/happyjump-bot/", HappyJumpBot)
+        (r"/ws/happyjump/happyjump-bot/", HappyJumpBot),
+        (r"/ws/happyjump/happyjump-dqn/", AiHandler, dict(
+            agent=HappyJumpAgent(dqn_hj, 3)
+        )),
+        (r"/ws/happyjump/happyjump-ppo/", AiHandler, dict(
+            agent=HappyJumpAgent(ppo_hj, 3)
+        )),
+        (r"/ws/happyjump/happyjump-trpo/", AiHandler, dict(
+            agent=HappyJumpAgent(trpo_hj, 3)
+        )),
     ]
 
     pong_endpoint = (r"/ws/pong/routes/", RoutesHandler, dict(routes=pong_routes))
