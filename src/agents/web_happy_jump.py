@@ -11,7 +11,8 @@ class HappyJumpAgent(WebsocketAgent):
         self.min_values = np.array([0, 0, -5, -20, -1, 0, 0, -1, 0, 0], dtype=np.float32)
         self.max_values = np.array([400, 600, 5, 50, 1, 400, 600, 1, 400, 600], dtype=np.float32)
         self.low = np.array([0, 0, -1, -1, -1, 0, 0, -1, 0, 0], dtype=np.float32)
-        self.high = np.ones(10, dtype=np.float32)
+        self.high = np.array([1, 1, 1, 1, 1, 1, 1, 1, 1, 1], dtype=np.float32),
+        self.action_map = {0: -1, 1: 0, 2: 1}
 
     def prepare_observation(self, data: dict):
         state = data['state']
@@ -52,4 +53,5 @@ class HappyJumpAgent(WebsocketAgent):
             observation=obs,
             deterministic=True
         )
-        return {'jump': 1, 'move': int(action)}
+        move = self.action_map[int(action)]
+        return {'jump': 1, 'move': move}
