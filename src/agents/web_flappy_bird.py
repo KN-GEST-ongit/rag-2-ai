@@ -49,10 +49,8 @@ class FlappyBirdAgent(WebsocketAgent):
 
     def return_prediction(self, data: dict) -> dict:
         obs = self.prepare_observation(data)
-        if not self.should_start:
-            action, _states = self.model.predict(
-                observation=obs,
-                deterministic=True
-            )
-            return {'jump': int(action)}
-        return {'jump': 1}
+        action, _states = self.model.predict(
+            observation=obs,
+            deterministic=True
+        )
+        return {'jump': 1} if self.should_start else {'jump': int(action)}
