@@ -82,10 +82,11 @@ class BaseHandler(WebSocketHandler):
     def on_message(self, message):  # do not override
         if self.last_message_time is None or time.time() - self.last_message_time >= 0.045:
             self.last_message_time = time.time()
-            self.send_message(message)
+            data = json.loads(message)
+            self.send_prediction(data)
 
     @abstractmethod
-    def send_message(self, message):
+    def send_prediction(self, data: dict):
         raise NotImplementedError
 
 
