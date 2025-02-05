@@ -84,9 +84,9 @@ class HappyJumpBot(BaseHandler):
                     platform_right += platform_offset
 
                 if state['playerSpeedY'] < 0:
-                    if platform_left > player_right:
+                    if platform_left >= player_right:
                         move = 1
-                    elif platform_right < player_left:
+                    elif platform_right <= player_left:
                         move = -1
                 else:
                     if platform_left > player_right:
