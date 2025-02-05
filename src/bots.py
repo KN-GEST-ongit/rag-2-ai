@@ -1,5 +1,4 @@
 import json
-import random  # to test
 
 from src.handlers import BaseHandler
 
@@ -64,6 +63,43 @@ class SkiJumpBot(BaseHandler):
 class HappyJumpBot(BaseHandler):
     def send_prediction(self, data: dict):
         state = data['state']
-        move = random.choice([0, 1, -1])
-        # TODO
-        self.write_message(json.dumps({'jump': 1, 'move': move}))
+        move = 0
+        jump = 0
+
+        if not state['isGameStarted']:
+            jump = 1
+        else:
+            lower_platform = min(
+                (p for p in state['platforms'] if p['y'] > state['playerY']),
+                key=lambda p: p['y'],
+                default=None
+            )
+            if lower_platform is not None:
+                player_left, player_right = state['playerX'], state['playerX'] + 30
+                platform_left, platform_right = lower_platform['x'], lower_platform['x'] + 100
+
+                if state['movingPlatforms'] > 0:
+                    platform_offset = lower_platform['directionX'] * state['platformSpeed']
+                    platform_left += platform_offset
+                    platform_right += platform_offset
+
+                if state['playerSpeedY'] < 0:
+                    if platform_left >= player_right:
+                        move = 1
+                    elif platform_right <= player_left:
+                        move = -1
+                else:
+                    if platform_left > player_right:
+                        move = 1
+                        if abs(player_right - platform_left) <= 3:
+                            jump = 1
+                    elif platform_right < player_left:
+                        move = -1
+                        if abs(player_left - platform_right) <= 3:
+                            jump = 1
+                    else:
+                        jump = int(state['playerSpeedY'] > 0)
+            else:
+                jump = 1
+
+        self.write_message(json.dumps({'jump': jump, 'move': move}))
