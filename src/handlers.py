@@ -18,6 +18,5 @@ class AiHandler(BaseHandler):
     def after_close(self):
         self.agent.states.clear()
 
-    def send_prediction(self, data: dict):
-        action = self.agent.return_prediction(data)
-        self.write_message(json.dumps(action))
+    def choose_move(self, data: dict) -> dict:
+        return self.agent.return_prediction(data)

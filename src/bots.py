@@ -4,7 +4,7 @@ from src.handlers import BaseHandler
 
 
 class PongBot(BaseHandler):
-    def send_prediction(self, data: dict):
+    def choose_move(self, data: dict):
         player = data['playerId']
         state = data['state']
 
@@ -19,11 +19,11 @@ class PongBot(BaseHandler):
             else:
                 move = -1
 
-        self.write_message(json.dumps({'move': move, 'start': 1}))
+        return {'move': move, 'start': 1}
 
 
 class FlappybirdBot(BaseHandler):
-    def send_prediction(self, data: dict):
+    def choose_move(self, data: dict):
         state = data['state']
         jump = 0
 
@@ -37,11 +37,11 @@ class FlappybirdBot(BaseHandler):
             if state['birdY'] > nearest_obstacle['centerGapY']:
                 jump = 1
 
-        self.write_message(json.dumps({'jump': jump}))
+        return {'jump': jump}
 
 
 class SkiJumpBot(BaseHandler):
-    def send_prediction(self, data: dict):
+    def choose_move(self, data: dict):
         state = data['state']
 
         space = 0
@@ -57,11 +57,11 @@ class SkiJumpBot(BaseHandler):
         if state['jumperInclineRad'] < 0.7:
             up = 1
 
-        self.write_message(json.dumps({'space': space, 'up': up, 'down': down}))
+        return {'space': space, 'up': up, 'down': down}
 
 
 class HappyJumpBot(BaseHandler):
-    def send_prediction(self, data: dict):
+    def choose_move(self, data: dict):
         state = data['state']
         move = 0
         jump = 0
@@ -102,4 +102,4 @@ class HappyJumpBot(BaseHandler):
             else:
                 jump = 1
 
-        self.write_message(json.dumps({'jump': jump, 'move': move}))
+        return {'jump': jump, 'move': move}

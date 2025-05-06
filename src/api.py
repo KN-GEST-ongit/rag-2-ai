@@ -75,19 +75,28 @@ class BaseHandler(WebSocketHandler):
 
         self.after_close()
 
-    def after_close(self):
-        pass
-
     @final
-    def on_message(self, message):  # do not override
-        if self.last_message_time is None or time.time() - self.last_message_time >= 0.045:
-            self.last_message_time = time.time()
-            data = json.loads(message)
-            self.send_prediction(data)
+    def on_message(self, message):
+        if self.last_message_time is not None and time.time() - self.last_message_time <= 0.045: return
+        self.last_message_time = time.time()
+
+        game_state = json.loads(message)
+        self.process_game_state(game_state)
+
+        move = self.choose_move(game_state)
+        self.write_message(json.dumps(move))
 
     @abstractmethod
-    def send_prediction(self, data: dict):
+    def process_game_state(self, game_state):
+        pass
+
+    @abstractmethod
+    def choose_move(self, data: dict) -> dict:
         raise NotImplementedError
+
+    @abstractmethod
+    def after_close(self):
+        pass
 
 
 class RoutesHandler(RequestHandler):
