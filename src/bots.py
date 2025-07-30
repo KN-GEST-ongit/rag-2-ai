@@ -1,7 +1,9 @@
 import json
 
 from src.handlers import BaseHandler
-
+import random
+import heapq
+from collections import deque
 
 class PongBot(BaseHandler):
     def choose_move(self, data: dict):
@@ -103,3 +105,150 @@ class HappyJumpBot(BaseHandler):
                 jump = 1
 
         return {'jump': jump, 'move': move}
+
+
+class PacManBot(BaseHandler):
+    visited_positions = set()
+    path = []
+    current_target = None
+    next_step = None
+    recent_positions = deque(maxlen=6)
+    walls_initialized = False
+    last_game_started = False
+    start_sent = False
+    last_level = None
+    reset_triggered = False
+
+    def reset_state(self):
+        PacManBot.visited_positions.clear()
+        PacManBot.path.clear()
+        PacManBot.current_target = None
+        PacManBot.next_step = None
+        PacManBot.recent_positions.clear()
+        PacManBot.walls_initialized = False
+        PacManBot.start_sent = False
+        PacManBot.reset_triggered = True
+        print("[RESET]")
+
+    def _check_game_end(self, state):
+        game_started = state.get('isGameStarted', False)
+        if PacManBot.last_game_started and not game_started:
+            self.reset_state()
+            return True
+        PacManBot.last_game_started = game_started
+        return False
+
+    def choose_move(self, data: dict):
+        state = data['state']
+
+        reset_just_happened = PacManBot.reset_triggered
+        PacManBot.reset_triggered = False
+
+        if self._check_game_end(state):
+            return {"move": 1}
+
+        game_map = state['map']
+        tile_size = state['tileSize']
+        game_started = state.get('isGameStarted', False)
+        current_level = state.get('level')
+
+        if PacManBot.last_level is not None and current_level != PacManBot.last_level:
+            self.reset_state()
+        PacManBot.last_level = current_level
+
+        if not game_started:
+            if not PacManBot.start_sent:
+                PacManBot.start_sent = True
+            return {"move": 1}
+
+        pacman_x, pacman_y = state['pacmanX'], state['pacmanY']
+        pacman_row, pacman_col = int(pacman_y // tile_size), int(pacman_x // tile_size)
+
+        directions = {1: (0, -1), 2: (0, 1), 3: (-1, 0), 4: (1, 0)}
+        PacManBot.recent_positions.append((pacman_row, pacman_col))
+
+        power_mode = state.get('isPowerMode', False)
+        enemies = state.get('enemies', [])
+        danger_positions = [(int(e['y'] // tile_size), int(e['x'] // tile_size)) for e in enemies]
+
+        if not PacManBot.walls_initialized:
+            for r, row in enumerate(game_map):
+                for c, tile in enumerate(row):
+                    if tile == 1:
+                        PacManBot.visited_positions.add((r, c))
+            PacManBot.walls_initialized = True
+
+        PacManBot.visited_positions.add((pacman_row, pacman_col))
+
+        def is_walkable(r, c):
+            return 0 <= r < len(game_map) and 0 <= c < len(game_map[0]) and game_map[r][c] != 1
+
+        def is_safe(r, c):
+            if not is_walkable(r, c):
+                return False
+            if power_mode:
+                return True
+            return all(abs(er - r) + abs(ec - c) > 2 for er, ec in danger_positions)
+
+        def dijkstra_find_path(sr, sc):
+            pq = [(0, sr, sc, [])]
+            visited = set()
+            while pq:
+                cost, r, c, path = heapq.heappop(pq)
+                if (r, c) in visited:
+                    continue
+                visited.add((r, c))
+                if (r, c) not in PacManBot.visited_positions and is_safe(r, c):
+                    PacManBot.current_target = (r, c)
+                    return path
+                for move, (dr, dc) in directions.items():
+                    nr, nc = r + dr, c + dc
+                    if (nr, nc) not in visited and is_walkable(nr, nc) and is_safe(nr, nc):
+                        heapq.heappush(pq, (cost + 1, nr, nc, path + [move]))
+            return []
+
+        if reset_just_happened:
+            PacManBot.current_target = None
+            PacManBot.path = dijkstra_find_path(pacman_row, pacman_col)
+            if PacManBot.path:
+                move = PacManBot.path[0]
+                dr, dc = directions[move]
+                PacManBot.next_step = (pacman_row + dr, pacman_col + dc)
+
+        if PacManBot.current_target is None or PacManBot.current_target == (pacman_row, pacman_col):
+            PacManBot.current_target = None
+            PacManBot.path.clear()
+            PacManBot.next_step = None
+            PacManBot.path = dijkstra_find_path(pacman_row, pacman_col)
+            if PacManBot.path:
+                move = PacManBot.path[0]
+                dr, dc = directions[move]
+                PacManBot.next_step = (pacman_row + dr, pacman_col + dc)
+
+        if PacManBot.path:
+            if self._check_game_end(state):
+                return {"move": 1}
+            if PacManBot.next_step == (pacman_row, pacman_col):
+                PacManBot.path.pop(0)
+                if PacManBot.path:
+                    move = PacManBot.path[0]
+                    dr, dc = directions[move]
+                    PacManBot.next_step = (pacman_row + dr, pacman_col + dc)
+                else:
+                    PacManBot.next_step = None
+            if PacManBot.path:
+                if self._check_game_end(state):
+                    return {"move": 1}
+                return {'move': PacManBot.path[0]}
+
+        possible_moves = [move for move, (dr, dc) in directions.items()
+                          if is_safe(pacman_row + dr, pacman_col + dc)]
+
+        if possible_moves:
+            if self._check_game_end(state):
+                return {"move": 1}
+            return {'move': random.choice(possible_moves)}
+
+        if self._check_game_end(state):
+            return {"move": 1}
+        return {'move': 0}
