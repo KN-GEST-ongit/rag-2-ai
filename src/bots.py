@@ -111,29 +111,22 @@ class PacManBot(BaseHandler):
     visited_positions = set()
     path = []
     current_target = None
-    next_step = None
     recent_positions = deque(maxlen=6)
     walls_initialized = False
     last_game_started = False
-    start_sent = False
     last_level = None
-    reset_triggered = False
 
     def reset_state(self):
         PacManBot.visited_positions.clear()
         PacManBot.path.clear()
         PacManBot.current_target = None
-        PacManBot.next_step = None
         PacManBot.recent_positions.clear()
         PacManBot.walls_initialized = False
-        PacManBot.start_sent = False
-        PacManBot.reset_triggered = True
         print("[RESET]")
 
     def _check_game_end(self, state):
         game_started = state.get('isGameStarted', False)
         if PacManBot.last_game_started and not game_started:
-            self.reset_state()
             return True
         PacManBot.last_game_started = game_started
         return False
@@ -141,11 +134,8 @@ class PacManBot(BaseHandler):
     def choose_move(self, data: dict):
         state = data['state']
 
-        reset_just_happened = PacManBot.reset_triggered
-        PacManBot.reset_triggered = False
-
         if self._check_game_end(state):
-            return {"move": 1}
+            self.reset_state()
 
         game_map = state['map']
         tile_size = state['tileSize']
@@ -157,8 +147,6 @@ class PacManBot(BaseHandler):
         PacManBot.last_level = current_level
 
         if not game_started:
-            if not PacManBot.start_sent:
-                PacManBot.start_sent = True
             return {"move": 1}
 
         pacman_x, pacman_y = state['pacmanX'], state['pacmanY']
@@ -168,8 +156,7 @@ class PacManBot(BaseHandler):
         PacManBot.recent_positions.append((pacman_row, pacman_col))
 
         power_mode = state.get('isPowerMode', False)
-        enemies = state.get('enemies', [])
-        danger_positions = [(int(e['y'] // tile_size), int(e['x'] // tile_size)) for e in enemies]
+        enemies = [(int(e['y'] // tile_size), int(e['x'] // tile_size)) for e in state.get('enemies', [])]
 
         if not PacManBot.walls_initialized:
             for r, row in enumerate(game_map):
@@ -188,7 +175,7 @@ class PacManBot(BaseHandler):
                 return False
             if power_mode:
                 return True
-            return all(abs(er - r) + abs(ec - c) > 2 for er, ec in danger_positions)
+            return all(abs(er - r) + abs(ec - c) > 1.5 for er, ec in enemies)
 
         def dijkstra_find_path(sr, sc):
             pq = [(0, sr, sc, [])]
@@ -207,48 +194,22 @@ class PacManBot(BaseHandler):
                         heapq.heappush(pq, (cost + 1, nr, nc, path + [move]))
             return []
 
-        if reset_just_happened:
-            PacManBot.current_target = None
-            PacManBot.path = dijkstra_find_path(pacman_row, pacman_col)
-            if PacManBot.path:
-                move = PacManBot.path[0]
-                dr, dc = directions[move]
-                PacManBot.next_step = (pacman_row + dr, pacman_col + dc)
+        if len(PacManBot.recent_positions) >= 3:
+            last3 = list(PacManBot.recent_positions)[-3:]
+            if last3.count(last3[0]) == 3:
+                PacManBot.path.clear()
+                PacManBot.current_target = None
 
-        if PacManBot.current_target is None or PacManBot.current_target == (pacman_row, pacman_col):
+        if PacManBot.current_target is None or PacManBot.current_target == (pacman_row, pacman_col) or not PacManBot.path:
             PacManBot.current_target = None
-            PacManBot.path.clear()
-            PacManBot.next_step = None
             PacManBot.path = dijkstra_find_path(pacman_row, pacman_col)
-            if PacManBot.path:
-                move = PacManBot.path[0]
-                dr, dc = directions[move]
-                PacManBot.next_step = (pacman_row + dr, pacman_col + dc)
 
         if PacManBot.path:
-            if self._check_game_end(state):
-                return {"move": 1}
-            if PacManBot.next_step == (pacman_row, pacman_col):
-                PacManBot.path.pop(0)
-                if PacManBot.path:
-                    move = PacManBot.path[0]
-                    dr, dc = directions[move]
-                    PacManBot.next_step = (pacman_row + dr, pacman_col + dc)
-                else:
-                    PacManBot.next_step = None
-            if PacManBot.path:
-                if self._check_game_end(state):
-                    return {"move": 1}
-                return {'move': PacManBot.path[0]}
+            move = PacManBot.path.pop(0)
+            return {'move': move}
 
-        possible_moves = [move for move, (dr, dc) in directions.items()
-                          if is_safe(pacman_row + dr, pacman_col + dc)]
-
+        possible_moves = [m for m, (dr, dc) in directions.items() if is_safe(pacman_row + dr, pacman_col + dc)]
         if possible_moves:
-            if self._check_game_end(state):
-                return {"move": 1}
             return {'move': random.choice(possible_moves)}
 
-        if self._check_game_end(state):
-            return {"move": 1}
         return {'move': 0}
