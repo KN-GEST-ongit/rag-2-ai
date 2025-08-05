@@ -1,5 +1,3 @@
-import json
-
 from src.handlers import BaseHandler
 import random
 import heapq
@@ -119,15 +117,16 @@ class PacManBot(BaseHandler):
         self.walls_initialized = False
         self.last_game_started = False
         self.last_level = None
+        self.safe_distance = 1.75
 
-    def reset_state(self):
+    def reset_state(self) -> None:
         self.visited_positions.clear()
         self.path.clear()
         self.current_target = None
         self.recent_positions.clear()
         self.walls_initialized = False
 
-    def _check_game_end(self, state):
+    def _check_game_end(self, state: dict) -> bool:
         game_started = state.get('isGameStarted', False)
         if self.last_game_started and not game_started:
             return True
@@ -159,7 +158,8 @@ class PacManBot(BaseHandler):
         self.recent_positions.append((pacman_row, pacman_col))
 
         power_mode = state.get('isPowerMode', False)
-        enemies = [(int(e['y'] // tile_size), int(e['x'] // tile_size)) for e in state.get('enemies', [])]
+        enemies = [(int(enemy['y'] // tile_size), int(enemy['x'] // tile_size))
+                   for enemy in state.get('enemies', [])]
 
         if not self.walls_initialized:
             for r, row in enumerate(game_map):
@@ -170,31 +170,34 @@ class PacManBot(BaseHandler):
 
         self.visited_positions.add((pacman_row, pacman_col))
 
-        def is_walkable(r, c):
-            return 0 <= r < len(game_map) and 0 <= c < len(game_map[0]) and game_map[r][c] != 1
+        def is_walkable(walkable_row: int, walkable_column: int) -> bool:
+            return (0 <= walkable_row < len(game_map) and 0 <= walkable_column < len(game_map[0])
+                    and game_map[walkable_row][walkable_column] != 1)
 
-        def is_safe(r, c):
-            if not is_walkable(r, c):
+        def is_safe(safe_row: int, safe_column: int) -> bool:
+            if not is_walkable(safe_row, safe_column):
                 return False
             if power_mode:
                 return True
-            return all(abs(er - r) + abs(ec - c) > 1.5 for er, ec in enemies)
+            return all(abs(enemy_row - safe_row) + abs(enemy_column - safe_column) > self.safe_distance
+                       for enemy_row, enemy_column in enemies)
 
-        def dijkstra_find_path(sr, sc):
-            pq = [(0, sr, sc, [])]
+        def dijkstra_find_path(start_row: int, start_column: int) -> list:
+            pq = [(0, start_row, start_column, [])]
             visited = set()
             while pq:
-                cost, r, c, path = heapq.heappop(pq)
-                if (r, c) in visited:
+                cost, dij_row, dij_column, path = heapq.heappop(pq)
+                if (dij_row, dij_column) in visited:
                     continue
-                visited.add((r, c))
-                if (r, c) not in self.visited_positions and is_safe(r, c):
-                    self.current_target = (r, c)
+                visited.add((dij_row, dij_column))
+                if (dij_row, dij_column) not in self.visited_positions and is_safe(dij_row, dij_column):
+                    self.current_target = (dij_row, dij_column)
                     return path
-                for move, (dr, dc) in directions.items():
-                    nr, nc = r + dr, c + dc
-                    if (nr, nc) not in visited and is_walkable(nr, nc) and is_safe(nr, nc):
-                        heapq.heappush(pq, (cost + 1, nr, nc, path + [move]))
+                for dij_move, (direction_row, direction_column) in directions.items():
+                    next_row, next_column = dij_row + direction_row, dij_column + direction_column
+                    if ((next_row, next_column) not in visited and
+                            is_walkable(next_row, next_column) and is_safe(next_row, next_column)):
+                        heapq.heappush(pq, (cost + 1, next_row, next_column, path + [dij_move]))
             return []
 
         if len(self.recent_positions) >= 3:
@@ -211,7 +214,8 @@ class PacManBot(BaseHandler):
             move = self.path.pop(0)
             return {'move': move}
 
-        possible_moves = [m for m, (dr, dc) in directions.items() if is_safe(pacman_row + dr, pacman_col + dc)]
+        possible_moves = [possible_move for possible_move, (direction_row, direction_column)
+                          in directions.items() if is_safe(pacman_row + direction_row, pacman_col + direction_column)]
         if possible_moves:
             return {'move': random.choice(possible_moves)}
 
