@@ -1,5 +1,10 @@
 # RAG-2 AI microservice
 
+## Prerequisities
+
+- Python 3.9
+- PIP 21.1.2
+
 ## License
 
 This project is available under the AGPL License. See [LICENSE](./LICENSE) for more information.
