@@ -73,26 +73,26 @@ def define_routes() -> List[Tuple[str, Type, dict]]:
         )),
     ]
 
-    pacman_routes = [
-        (r"/ws/pacman/pacman-bot/", PacManBot)
-    ]
+    # pacman_routes = [
+    #     (r"/ws/pacman/pacman-bot/", PacManBot)
+    # ]
 
     pong_endpoint = (r"/ws/pong/routes/", RoutesHandler, dict(routes=pong_routes))
     flappybird_endpoint = (r"/ws/flappybird/routes/", RoutesHandler, dict(routes=flappybird_routes))
     skijump_endpoint = (r"/ws/skijump/routes/", RoutesHandler, dict(routes=skijump_routes))
     happyjump_endpoint = (r"/ws/happyjump/routes/", RoutesHandler, dict(routes=happyjump_routes))
-    pacman_endpoint = (r"/ws/pacman/routes/", RoutesHandler, dict(routes=pacman_routes))
+    # pacman_endpoint = (r"/ws/pacman/routes/", RoutesHandler, dict(routes=pacman_routes))
 
     routes += pong_routes
     routes += flappybird_routes
     routes += skijump_routes
     routes += happyjump_routes
-    routes += pacman_routes
+    # routes += pacman_routes
 
     routes.append(pong_endpoint)
     routes.append(flappybird_endpoint)
     routes.append(skijump_endpoint)
     routes.append(happyjump_endpoint)
-    routes.append(pacman_endpoint)
+    # routes.append(pacman_endpoint)
 
     return routes
