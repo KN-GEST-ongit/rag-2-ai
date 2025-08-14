@@ -81,20 +81,19 @@ class BaseHandler(WebSocketHandler):
         self.last_message_time = time.time()
 
         game_state = json.loads(message)
-        self.process_game_state(game_state)
+        # self.process_game_state(game_state)
 
         move = self.choose_move(game_state)
         self.write_message(json.dumps(move))
 
-    @abstractmethod
-    def process_game_state(self, game_state):
-        pass
+    # @abstractmethod
+    # def process_game_state(self, game_state):
+    #     pass
 
     @abstractmethod
     def choose_move(self, data: dict) -> dict:
         raise NotImplementedError
 
-    @abstractmethod
     def after_close(self):
         pass
 
