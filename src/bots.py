@@ -253,25 +253,33 @@ class CrossyRoadBot(BaseHandler):
             return {'move': 0, 'action': 0}
 
         danger_here = not self.is_safe(px, current_lane)
+        left_safe = self.is_safe(px - 1, current_lane)
+        right_safe = self.is_safe(px + 1, current_lane)
+
+        if current_lane.get('type') == 'water':
+            if px > 9 and left_safe:
+                return {'move': 3, 'action': 0}
+            if px < -5 and right_safe:
+                return {'move': 4, 'action': 0}
 
         if self.is_safe(px, next_lane):
             return {'move': 1, 'action': 0}
 
         if danger_here:
-            if self.is_safe(px - 1, current_lane):
-                return {'move': 3, 'action': 0}
-
-            if self.is_safe(px + 1, current_lane):
-                return {'move': 4, 'action': 0}
-
             if prev_lane and self.is_safe(px, prev_lane):
                 return {'move': 2, 'action': 0}
+            if left_safe:
+                return {'move': 3, 'action': 0}
+            if right_safe:
+                return {'move': 4, 'action': 0}
 
-        if self.is_safe(px - 1, current_lane) and self.is_safe(px - 1, next_lane):
-            return {'move': 3, 'action': 0}
+        next_lane_type = next_lane.get('type')
 
-        if self.is_safe(px + 1, current_lane) and self.is_safe(px + 1, next_lane):
-            return {'move': 4, 'action': 0}
+        if next_lane_type in ['grass', 'water']:
+            if left_safe and self.is_safe(px - 1, next_lane):
+                return {'move': 3, 'action': 0}
+            if right_safe and self.is_safe(px + 1, next_lane):
+                return {'move': 4, 'action': 0}
 
         return {'move': 0, 'action': 0}
 
@@ -290,7 +298,7 @@ class CrossyRoadBot(BaseHandler):
             return True
 
         if lane_type == 'road':
-            lookahead_frames = 12
+            lookahead_frames = 20
 
             for obs in obstacles:
                 width = obs.get('width', 1.5)
@@ -317,7 +325,7 @@ class CrossyRoadBot(BaseHandler):
             for obs in obstacles:
                 if obs.get('type') == 'log':
                     width = obs.get('width', 3.0)
-                    safe_threshold = (width / 2) - 0.1
+                    safe_threshold = (width / 2) - 0.3
 
                     if abs(obs.get('x', 0) - target_px) < safe_threshold:
                         on_log = True
