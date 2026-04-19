@@ -8,7 +8,7 @@ RUN python -m venv /venv
 ENV PATH="/venv/bin:$PATH"
 
 RUN python -m pip install pip==21.1.2
-RUN pip install setuptools==65.5.0 wheel==0.38.0
+RUN pip install setuptools==66 wheel==0.38.0
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY "/" .
