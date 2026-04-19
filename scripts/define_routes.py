@@ -1,6 +1,6 @@
 from typing import List, Tuple, Type
 from src.api import RoutesHandler
-from src.bots import PongBot, FlappybirdBot, SkiJumpBot, HappyJumpBot, PacManBot
+from src.bots import PongBot, FlappybirdBot, SkiJumpBot, HappyJumpBot, PacManBot, CrossyRoadBot
 from src.handlers import AiHandler
 from src.agents.web_pong import PongAgent
 from src.agents.web_flappy_bird import FlappyBirdAgent
@@ -77,22 +77,29 @@ def define_routes() -> List[Tuple[str, Type, dict]]:
         (r"/ws/pacman/pacman-bot/", PacManBot)
     ]
 
+    crossyroad_routes = [
+        (r"/ws/crossyroad/crossyroad-bot/", CrossyRoadBot)
+    ]
+
     pong_endpoint = (r"/ws/pong/routes/", RoutesHandler, dict(routes=pong_routes))
     flappybird_endpoint = (r"/ws/flappybird/routes/", RoutesHandler, dict(routes=flappybird_routes))
     skijump_endpoint = (r"/ws/skijump/routes/", RoutesHandler, dict(routes=skijump_routes))
     happyjump_endpoint = (r"/ws/happyjump/routes/", RoutesHandler, dict(routes=happyjump_routes))
     pacman_endpoint = (r"/ws/pacman/routes/", RoutesHandler, dict(routes=pacman_routes))
+    crossyroad_endpoint = (r"/ws/crossyroad/routes/", RoutesHandler, dict(routes=crossyroad_routes))
 
     routes += pong_routes
     routes += flappybird_routes
     routes += skijump_routes
     routes += happyjump_routes
     routes += pacman_routes
+    routes += crossyroad_routes
 
     routes.append(pong_endpoint)
     routes.append(flappybird_endpoint)
     routes.append(skijump_endpoint)
     routes.append(happyjump_endpoint)
     routes.append(pacman_endpoint)
+    routes.append(crossyroad_endpoint)
 
     return routes
