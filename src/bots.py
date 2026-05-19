@@ -229,3 +229,107 @@ class PacManBot(BaseHandler):
             return {'move': random.choice(possible_moves)}
 
         return {'move': 0}
+
+
+class CrossyRoadBot(BaseHandler):
+    def choose_move(self, data: dict):
+        state = data['state']
+
+        if state.get('isGameOver'):
+            return {'move': 0, 'action': 1}
+
+        if state.get('isMoving') or state.get('moveCooldown', 0) > 0:
+            return {'move': 0, 'action': 0}
+
+        px = state['playerX']
+        pz = state['playerZ']
+        lanes = state['lanes']
+
+        current_lane = next((l for l in lanes if l['z'] == pz), None)
+        next_lane = next((l for l in lanes if l['z'] == pz + 1), None)
+        prev_lane = next((l for l in lanes if l['z'] == pz - 1), None)
+
+        if not current_lane or not next_lane:
+            return {'move': 0, 'action': 0}
+
+        danger_here = not self.is_safe(px, current_lane)
+        left_safe = self.is_safe(px - 1, current_lane)
+        right_safe = self.is_safe(px + 1, current_lane)
+
+        if current_lane.get('type') == 'water':
+            if px > 9 and left_safe:
+                return {'move': 3, 'action': 0}
+            if px < -5 and right_safe:
+                return {'move': 4, 'action': 0}
+
+        if self.is_safe(px, next_lane):
+            return {'move': 1, 'action': 0}
+
+        if danger_here:
+            if prev_lane and self.is_safe(px, prev_lane):
+                return {'move': 2, 'action': 0}
+            if left_safe:
+                return {'move': 3, 'action': 0}
+            if right_safe:
+                return {'move': 4, 'action': 0}
+
+        next_lane_type = next_lane.get('type')
+
+        if next_lane_type in ['grass', 'water']:
+            if left_safe and self.is_safe(px - 1, next_lane):
+                return {'move': 3, 'action': 0}
+            if right_safe and self.is_safe(px + 1, next_lane):
+                return {'move': 4, 'action': 0}
+
+        return {'move': 0, 'action': 0}
+
+    def is_safe(self, target_px, lane):
+        if target_px < -8 or target_px > 12:
+            return False
+
+        lane_type = lane.get('type')
+        obstacles = lane.get('obstacles', [])
+
+        if lane_type == 'grass':
+            for obs in obstacles:
+                if obs.get('type') == 'tree':
+                    if abs(obs.get('x', 0) - target_px) < 0.6:
+                        return False
+            return True
+
+        if lane_type == 'road':
+            lookahead_frames = 20
+
+            for obs in obstacles:
+                width = obs.get('width', 1.5)
+                speed = obs.get('speed', 0)
+                direction = obs.get('direction', 1)
+
+                collision_threshold = (width / 2) + 0.2
+
+                for frame in range(lookahead_frames):
+                    future_x = obs.get('x', 0) + (speed * direction * frame)
+
+                    if future_x > 20:
+                        future_x -= 40
+                    elif future_x < -20:
+                        future_x += 40
+
+                    if abs(future_x - target_px) < collision_threshold:
+                        return False
+
+            return True
+
+        if lane_type == 'water':
+            on_log = False
+            for obs in obstacles:
+                if obs.get('type') == 'log':
+                    width = obs.get('width', 3.0)
+                    safe_threshold = (width / 2) - 0.3
+
+                    if abs(obs.get('x', 0) - target_px) < safe_threshold:
+                        on_log = True
+                        break
+            return on_log
+
+        return True

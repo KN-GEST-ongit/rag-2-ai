@@ -3,6 +3,7 @@ from sb3_contrib import ARS, TRPO, QRDQN
 from scripts.paths.pong_paths import dqn_pong_path, ppo_pong_path, a2c_pong_path, trpo_pong_path, qrdqn_pong_path
 from scripts.paths.flappy_bird_paths import ars_fb_path, ppo_fb_path, trpo_fb_path
 from scripts.paths.happy_jump_paths import dqn_hj_path, ppo_hj_path, trpo_hj_path
+from scripts.paths.crossy_road_paths import ppo_cr_path, trpo_cr_path
 
 # Pong
 dqn_pong = DQN.load(path=dqn_pong_path)
@@ -21,3 +22,7 @@ trpo_fb = TRPO.load(path=trpo_fb_path)
 dqn_hj = DQN.load(path=dqn_hj_path)
 ppo_hj = PPO.load(path=ppo_hj_path)
 trpo_hj = TRPO.load(path=trpo_hj_path)
+
+# Crossy Road
+ppo_cr = PPO.load(path=ppo_cr_path)
+trpo_cr = TRPO.load(path=trpo_cr_path)
