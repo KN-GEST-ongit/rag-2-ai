@@ -2,8 +2,9 @@ name: Test
 
 on:
   pull_request:
-    branches: [ "dev", "main" ]
+    branches: [main, dev]
   workflow_call:
+  workflow_dispatch:
 
 jobs:
   test:
@@ -22,6 +23,7 @@ jobs:
           python -m pip install pip==21.1.2
           pip install setuptools==66 wheel==0.38.0
           pip install -r requirements.txt
+
       - name: Test with unittest
         run: |
           python -m unittest discover -s tests
