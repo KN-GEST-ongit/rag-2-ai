@@ -2,7 +2,7 @@ import json
 import os
 import time
 from abc import abstractmethod
-from typing import List, Tuple, Type, final
+from typing import List, Optional, Tuple, Type, final
 from urllib.parse import urlparse, parse_qs
 
 import requests
@@ -30,6 +30,7 @@ def verify_jwt(token):
 class BaseHandler(WebSocketHandler):
     is_guest = False
     last_message_time = None
+    model_name = None
 
     @final
     def check_origin(self, origin):
@@ -46,6 +47,7 @@ class BaseHandler(WebSocketHandler):
     def open(self):
         global guest_users
 
+        self.model_name = self.extract_model_name_from_path()
         query_params = parse_qs(urlparse(self.request.uri).query)
         token = query_params.get("jwt", [None])[0]
         load_dotenv()
@@ -62,6 +64,10 @@ class BaseHandler(WebSocketHandler):
         else:
             self.is_guest = False
             print("WebSocket connection opened as authenticated")
+        self.write_message(json.dumps({
+            "type": "handshake",
+            "modelName": self.model_name
+        }))
 
     @final
     def on_close(self):
@@ -96,6 +102,12 @@ class BaseHandler(WebSocketHandler):
 
     def after_close(self):
         pass
+
+    def extract_model_name_from_path(self) -> Optional[str]:
+        path_parts = [segment for segment in self.request.path.split('/') if segment]
+        if not path_parts:
+            return None
+        return path_parts[-1]
 
 
 class RoutesHandler(RequestHandler):
