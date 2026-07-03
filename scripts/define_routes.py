@@ -83,10 +83,10 @@ def define_routes() -> List[Tuple[str, Type, dict]]:
     crossyroad_routes = [
         (r"/ws/crossyroad/crossyroad-bot/", CrossyRoadBot),
         (r"/ws/crossyroad/crossyroad-ppo/", AiHandler, dict(
-            agent=CrossyRoadAgent(ppo_cr, 3)
+            agent=CrossyRoadAgent(ppo_cr, 1)
         )),
         (r"/ws/crossyroad/crossyroad-trpo/", AiHandler, dict(
-            agent=CrossyRoadAgent(trpo_cr, 3)
+            agent=CrossyRoadAgent(trpo_cr, 1)
         )),
     ]
 
