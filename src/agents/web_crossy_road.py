@@ -36,6 +36,17 @@ class CrossyRoadAgent(WebsocketAgent):
         return self.state_stack(curr_observation)
 
     def return_prediction(self, data: dict) -> dict:
+        is_game_over = data.get('state', {}).get('isGameOver', False)
+
+        if is_game_over:
+            if not getattr(self, 'waiting_for_reset', False):
+                self.waiting_for_reset = True
+                return {'move': 0, 'action': 1}
+            else:
+                return {'move': 0, 'action': 0}
+
+        self.waiting_for_reset = False
+
         obs = self.prepare_observation(data)
 
         action, _states = self.model.predict(
