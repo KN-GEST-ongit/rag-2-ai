@@ -4,25 +4,30 @@ import torch.nn as nn
 import os
 import random
 import time
+import math
 import threading
 from src.handlers import BaseHandler
 from scripts.paths.abalone_paths import abalone_nnue_path
 
 
 class AbaloneNNUE(nn.Module):
-    def __init__(self, input_features=121, hidden_dim=256):
+    def __init__(self, input_features=61, hidden_dim=128):
         super().__init__()
         self.accumulator = nn.Linear(input_features, hidden_dim)
+        self.acc_norm = nn.LayerNorm(hidden_dim)
+
         self.hidden = nn.Sequential(
-            nn.Linear(hidden_dim, 128),
+            nn.Linear(hidden_dim, 64),
             nn.LeakyReLU(0.1),
-            nn.Linear(128, 64),
+            nn.Linear(64, 64),
         )
         self.skip = nn.Linear(hidden_dim, 64)
+
         self.output = nn.Sequential(
             nn.LeakyReLU(0.1),
             nn.Linear(64, 1),
         )
+
         self._init_weights()
 
     def _init_weights(self):
@@ -33,7 +38,7 @@ class AbaloneNNUE(nn.Module):
                     nn.init.constant_(m.bias, 0)
 
     def forward(self, x):
-        acc = torch.nn.functional.leaky_relu(self.accumulator(x), 0.1)
+        acc = self.acc_norm(torch.nn.functional.leaky_relu(self.accumulator(x), 0.1))
         return self.output(self.hidden(acc) + self.skip(acc))
 
 
@@ -353,19 +358,27 @@ class CoordinateMapper:
 # Inicjalizujemy globalny mapper dla całego silnika
 mapper = CoordinateMapper()
 
+# 61 prawdziwych pól planszy (reszta z 121 to zawsze ściany — nie podajemy ich do NNUE)
+VALID_CELLS = sorted(mapper.idx_to_str.keys())
+
 
 class AlphaBetaAI:
-    def __init__(self, max_depth=3, model_path=None):
+    def __init__(self, max_depth=4, model_path=None, eval_version='v2'):
         self.max_depth = max_depth
         # Grywalne pola (bez ścian) dla szybszej ewaluacji
-        self.playable_indices = [idx for idx, val in enumerate(mapper.idx_to_str.keys())]
-        
+        self.playable_indices = list(mapper.idx_to_str.keys())
+
         # Wagi pozycyjne - im bliżej środka (E5 = indeks 60), tym lepiej.
         self.positional_weights = [0] * 121
         self._precalculate_center_weights()
         
         # Killer Moves: depth -> [move_id1, move_id2]
         self.killer_moves = {}
+        # History Heuristic: move_id -> cumulative bonus (depth * 1000 at each cutoff)
+        self.history_table = {}
+        # History aging: zachowuj statystyki miedzy ruchami z zanikaniem (zamiast zerowania)
+        # Benchmark pokazal efekt neutralny/lekko negatywny, wiec domyslnie OFF
+        self.history_aging = False
         # Transposition Table: hash -> {depth, score, flag, best_move_id}
         self.tt = {}
         # PV Table ( pomocnicza do move ordering )
@@ -375,6 +388,8 @@ class AlphaBetaAI:
         self.EXACT = 0
         self.LOWERBOUND = 1
         self.UPPERBOUND = 2
+
+        self.eval_version = eval_version
 
         # NNUE Model Support — CPU only (PyTorch 1.11 nie obsługuje sm_120)
         self.device = torch.device("cpu")
@@ -436,39 +451,24 @@ class AlphaBetaAI:
             for idx in move['marbles']
         )
 
-        if len(move['marbles']) >= 2 and center_diff > 0:
-            return 600_000 + center_diff + random.random()
+        history_bonus = min(self.history_table.get(move_id, 0), 90_000)
 
-        return center_diff + random.random()
+        if len(move['marbles']) >= 2 and center_diff > 0:
+            return 600_000 + center_diff + history_bonus + random.random()
+
+        return center_diff + history_bonus + random.random()
 
     def evaluate(self, board_array, current_player):
         if self.model is not None:
-            # Wszystko liczymy z perspektywy BLACK (tak jak NNUE)
             black_count = 0
             white_count = 0
-            black_center = 0.0
-            white_center = 0.0
-            wall_pressure = 0.0  # pozytywne = WHITE przy krawędzi (dobrze dla BLACK)
 
             for idx in mapper.idx_to_str.keys():
                 piece = board_array[idx]
                 if piece == BLACK:
                     black_count += 1
-                    black_center += self.positional_weights[idx]
                 elif piece == WHITE:
                     white_count += 1
-                    white_center += self.positional_weights[idx]
-                    wall_n = sum(
-                        1 for offset in OFFSETS.values()
-                        if 0 <= idx + offset < 121 and board_array[idx + offset] == WALL
-                    )
-                    wall_pressure += wall_n * 5.0
-                if piece == BLACK:
-                    wall_n = sum(
-                        1 for offset in OFFSETS.values()
-                        if 0 <= idx + offset < 121 and board_array[idx + offset] == WALL
-                    )
-                    wall_pressure -= wall_n * 2.5
 
             # Sprawdź wygraną/przegraną
             if current_player == BLACK:
@@ -479,14 +479,37 @@ class AlphaBetaAI:
                 if white_count <= 8: return -1_000_000.0
 
             with torch.no_grad():
-                board_tensor = torch.tensor(board_array, dtype=torch.float32, device=self.device).unsqueeze(0)
-                nnue_score = self.model(board_tensor).item() * 100.0
+                # Podajemy tylko 61 prawdziwych pól (ściany pomijamy całkowicie —
+                # model uczony był wyłącznie na realnych komórkach planszy).
+                arr = [float(board_array[i]) for i in VALID_CELLS]
+                board_tensor = torch.tensor(arr, dtype=torch.float32, device=self.device).unsqueeze(0)
+                # Model przewiduje tanh(eval/300) ∈ (-1,1); odwracamy aby odzyskać skalę oceny.
+                raw = max(-0.999, min(0.999, self.model(board_tensor).item()))
+                nnue_score = 300.0 * math.atanh(raw)
 
-            center_bonus = black_center - white_center
-            marble_diff = (black_count - white_count) * 40.0
-            score = nnue_score + center_bonus * 2.0 + wall_pressure + marble_diff
+            center_bonus = 0.0
+            for idx in mapper.idx_to_str.keys():
+                piece = board_array[idx]
+                if piece == BLACK:
+                    center_bonus += self.positional_weights[idx]
+                elif piece == WHITE:
+                    center_bonus -= self.positional_weights[idx]
+
+            # Jawna premia materiałowa — NNUE samo w sobie zbyt słabo odróżnia
+            # pozycje różniące się tylko liczbą bierek, co prowadziło do
+            # ignorowania darmowych zbić. Każda zbita kula to krok do wygranej
+            # (8 strat = koniec gry), więc waga musi być znacząca.
+            marble_diff = (black_count - white_count) * 60.0
+
+            score = nnue_score + center_bonus * 5.0 + marble_diff
             return score if current_player == BLACK else -score
 
+        if self.eval_version == 'v2':
+            return self._evaluate_v2(board_array, current_player)
+        return self._evaluate_v1(board_array, current_player)
+
+    def _evaluate_v1(self, board_array, current_player):
+        """Oryginalna ocena: suma ważona kamieni (materiał + pozycja + kohezja)."""
         my_count = 0
         enemy_count = 0
         score = 0.0
@@ -537,13 +560,71 @@ class AlphaBetaAI:
 
         return score
 
-    def get_best_move(self, board_instance, player, history=None, time_limit=5.0):
+    def _evaluate_v2(self, board_array, current_player):
+        """Ulepszona ocena: jawny materiał + kontrola centrum + kohezja + kara za skraj.
+
+        Składniki:
+          materiał  — różnica liczby kamieni x 30  (cel gry)
+          centrum   — suma wag pozycyjnych x 3      (kontrola środka)
+          kohezja   — liczba sąsiadów x 0.5         (spójność grupy)
+          skraj     — kara za własne kamienie przy krawędzi (dystans>=4)
+        """
+        my_marbles = enemy_marbles = 0
+        my_center = enemy_center = 0.0
+        my_coh = enemy_coh = 0
+        my_edge = enemy_edge = 0
+
+        for idx in mapper.idx_to_str.keys():
+            piece = board_array[idx]
+            if piece == 0:
+                continue
+
+            dist = self._center_dist[idx]
+            coh = sum(
+                1 for off in OFFSETS.values()
+                if 0 <= idx + off < 121 and board_array[idx + off] == piece
+            )
+
+            if piece == current_player:
+                my_marbles += 1
+                my_center += self.positional_weights[idx]
+                my_coh += coh
+                if dist >= 4:
+                    my_edge += dist - 3
+            else:
+                enemy_marbles += 1
+                enemy_center += self.positional_weights[idx]
+                enemy_coh += coh
+                if dist >= 4:
+                    enemy_edge += dist - 3
+
+        if enemy_marbles <= 8:
+            return 1_000_000.0
+        if my_marbles <= 8:
+            return -1_000_000.0
+
+        material = (my_marbles - enemy_marbles) * 30.0
+        center = (my_center - enemy_center) * 3.0
+        cohesion = (my_coh - enemy_coh) * 0.5
+        edge = (enemy_edge - my_edge) * 8.0
+
+        return material + center + cohesion + edge
+
+    def get_best_move(self, board_instance, player, history=None, time_limit=5.0,
+                       use_aspiration=True, aspiration_delta=0.5, randomize=True):
         self.killer_moves = {}
+        if self.history_aging:
+            # Zachowaj statystyki z poprzednich ruchow, ale zanikaj je (>>1):
+            # faworyzuje niedawne obciecia i ogranicza wzrost wartosci.
+            self.history_table = {mid: v >> 1 for mid, v in self.history_table.items() if v > 1}
+        else:
+            self.history_table = {}
         _thread_local.deadline = time.time() + time_limit
         best_move = None
         best_val = -float('inf')
         root_scored_moves = []
         start_time = time.time()
+        prev_score = None  # wynik z poprzedniej głębokości (potrzebny dla aspiration)
 
         if history is None:
             history = set()
@@ -555,8 +636,13 @@ class AlphaBetaAI:
             if time.time() - start_time >= time_limit:
                 break
 
-            alpha = -float('inf')
-            beta = float('inf')
+            # Aspiration Windows: zawęź okno wokół poprzedniego wyniku
+            if use_aspiration and prev_score is not None and current_depth >= 2:
+                alpha = prev_score - aspiration_delta
+                beta = prev_score + aspiration_delta
+            else:
+                alpha = -float('inf')
+                beta = float('inf')
 
             moves = board_instance.generate_legal_moves(player)
             if not moves:
@@ -571,23 +657,49 @@ class AlphaBetaAI:
             temp_best_move = None
             temp_best_val = -float('inf')
             temp_scored = []
-
             timed_out = False
-            for move in moves:
-                try:
-                    val = -self.negamax_raw(move['new_state'], move['new_hash'], current_depth - 1, -beta, -alpha, -player, history)
-                except _SearchTimeout:
-                    timed_out = True
-                    break
-                temp_scored.append((move, val))
 
-                if val > temp_best_val:
-                    temp_best_val = val
-                    temp_best_move = move
+            # Pętla z rozszerzaniem okna gdy wynik wypada poza przedział (max 5 prób)
+            for _aspiration_retry in range(5):
+                temp_best_move = None
+                temp_best_val = -float('inf')
+                temp_scored = []
+                current_alpha = alpha
 
-                alpha = max(alpha, temp_best_val)
-                if alpha >= beta:
+                for move in moves:
+                    try:
+                        val = -self.negamax_raw(move['new_state'], move['new_hash'], current_depth - 1, -beta, -current_alpha, -player, history)
+                    except _SearchTimeout:
+                        timed_out = True
+                        break
+                    temp_scored.append((move, val))
+
+                    if val > temp_best_val:
+                        temp_best_val = val
+                        temp_best_move = move
+
+                    current_alpha = max(current_alpha, temp_best_val)
+                    if current_alpha >= beta:
+                        break
+
+                if timed_out:
                     break
+
+                # Sprawdź czy wynik mieści się w oknie
+                if not use_aspiration or prev_score is None or current_depth < 2:
+                    break
+                if temp_best_val <= alpha:
+                    alpha -= aspiration_delta * 4  # rozszerz w dół
+                    beta = prev_score + aspiration_delta
+                elif temp_best_val >= beta:
+                    beta += aspiration_delta * 4  # rozszerz w górę
+                    alpha = prev_score - aspiration_delta
+                else:
+                    break  # wynik w oknie — akceptujemy
+                # ostatnia iteracja: fallback do pelnego okna
+                if _aspiration_retry == 3:
+                    alpha = -float('inf')
+                    beta = float('inf')
 
             if timed_out:
                 break
@@ -595,6 +707,7 @@ class AlphaBetaAI:
             if temp_best_move is not None:
                 best_move = temp_best_move
                 best_val = temp_best_val
+                prev_score = best_val
                 root_scored_moves = temp_scored  # keep last complete depth's scores
                 self.tt[board_hash] = {
                     'depth': current_depth,
@@ -603,19 +716,19 @@ class AlphaBetaAI:
                     'move': self.get_move_id(best_move)
                 }
 
-        # Losowość tylko w otwarciu (obie strony mają pełne komplety kulek)
-        black_count = board_instance.board.count(BLACK)
-        white_count = board_instance.board.count(WHITE)
-        is_opening = (black_count == 14 and white_count == 14)
-        if is_opening and root_scored_moves and best_val > -float('inf'):
-            margin = 1.5
+        # UWAGA: przy aspiracji oceny ruchow w root_scored_moves sa OGRANICZENIAMI
+        # (wask. okno), wiec losowy wybor "w marginesie" moze wskazac zly ruch.
+        # Losowy wybor stosujemy tylko gdy oceny sa pelnookienne (bez aspiracji).
+        if randomize and not use_aspiration and root_scored_moves and best_val > -float('inf'):
+            margin = max(2.0, abs(best_val) * 0.08)
             candidates = [m for m, s in root_scored_moves if s >= best_val - margin]
             if len(candidates) > 1:
                 best_move = random.choice(candidates)
 
         return best_move, best_val, root_scored_moves
 
-    def negamax_raw(self, board_array, board_hash, depth, alpha, beta, player, history):
+    def negamax_raw(self, board_array, board_hash, depth, alpha, beta, player, history,
+                     null_move=False):
         # Przerwij jeśli skończył się czas
         if time.time() >= getattr(_thread_local, 'deadline', float('inf')):
             raise _SearchTimeout()
@@ -649,6 +762,20 @@ class AlphaBetaAI:
         if not moves:
             return self.evaluate(board_array, player)
 
+        # 2. Null Move Pruning (R=2, tylko gdy nie jesteśmy już po null move)
+        NULL_R = 2
+        if (not null_move and depth >= NULL_R + 1
+                and beta < 90_000  # nie w pozycji wygranej/przegranej
+                and self.evaluate(board_array, player) >= beta):
+            # Przekazujemy ruch przeciwnikowi bez wykonania ruchu (null move)
+            null_hash = board_hash ^ ZOBRIST_BLACK_TO_MOVE
+            null_score = -self.negamax_raw(
+                board_array, null_hash, depth - NULL_R - 1,
+                -beta, -beta + 1, -player, history, null_move=True
+            )
+            if null_score >= beta:
+                return beta  # odcięcie
+
         pv_move_id = entry['move'] if entry else None
         moves.sort(key=lambda m: self.score_move(m, depth, pv_move_id), reverse=True)
 
@@ -672,6 +799,9 @@ class AlphaBetaAI:
                         self.killer_moves[depth].append(best_move_id)
                         if len(self.killer_moves[depth]) > 2:
                             self.killer_moves[depth].pop(0)
+                    # History Heuristic update
+                    if best_move_id is not None:
+                        self.history_table[best_move_id] = self.history_table.get(best_move_id, 0) + depth * 1_000
                     break
         finally:
             history.discard(board_hash)
@@ -739,10 +869,11 @@ class AbaloneAgent(BaseHandler):
         super().__init__(*args, **kwargs)
         self._game_history: set = set()
         self._lock = threading.Lock()
+        self._awaiting_fresh_game = True
         try:
-            self._engine = AlphaBetaAI(max_depth=3, model_path=abalone_nnue_path)
+            self._engine = AlphaBetaAI(max_depth=4, model_path=abalone_nnue_path)
         except Exception:
-            self._engine = AlphaBetaAI(max_depth=3)
+            self._engine = AlphaBetaAI(max_depth=4)
 
     def choose_move(self, data: dict) -> dict:
         if not self._lock.acquire(blocking=False):
@@ -750,9 +881,14 @@ class AbaloneAgent(BaseHandler):
         try:
             state = data.get("state", {})
             board = state.get("board", {})
-            if sum(1 for v in board.values() if v in ("BLACK", "WHITE")) == 28:
-                self._engine.tt.clear()
-                self._game_history.clear()
+            marble_count = sum(1 for v in board.values() if v in ("BLACK", "WHITE"))
+            if marble_count == 28:
+                if self._awaiting_fresh_game:
+                    self._engine.tt.clear()
+                    self._game_history.clear()
+                    self._awaiting_fresh_game = False
+            else:
+                self._awaiting_fresh_game = True
             player_val = WHITE if data.get("playerId", 0) == 0 else BLACK
             return get_abalone_move(state, player_val, self._engine, self._game_history)
         except Exception as e:
